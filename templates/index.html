@@ -391,14 +391,114 @@
 
     #send-btn:hover:not(:disabled) { background: var(--accent-dark); }
     #send-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* ── MOBILE HAMBURGER (hidden on desktop) ── */
+    .btn-hamburger {
+      display: none;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 6px;
+      border-radius: 6px;
+      color: var(--text-2);
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+    }
+    .btn-hamburger:hover { background: var(--surface-alt); }
+
+    /* ── MOBILE OVERLAY ── */
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.35);
+      z-index: 40;
+      opacity: 0;
+      transition: opacity 0.22s ease;
+    }
+    .sidebar-overlay.visible {
+      opacity: 1;
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 640px) {
+      html, body { overflow: hidden; }
+
+      .app {
+        grid-template-columns: 1fr;
+        grid-template-rows: 52px 1fr;
+        grid-template-areas: "header" "main";
+        transition: none;
+      }
+
+      /* Sidebar becomes a fixed drawer */
+      aside {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 240px;
+        z-index: 50;
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+        border-right: 1px solid var(--border);
+        box-shadow: 2px 0 12px rgba(0,0,0,0.08);
+      }
+
+      aside.mobile-open {
+        transform: translateX(0);
+      }
+
+      /* Show overlay when drawer is open */
+      .sidebar-overlay { display: block; pointer-events: none; }
+      .sidebar-overlay.visible { pointer-events: auto; }
+
+      /* Show hamburger, hide the in-sidebar collapse toggle */
+      .btn-hamburger { display: flex; }
+      .sidebar-toggle { display: none; }
+
+      /* Always show sidebar contents (no collapsed state on mobile) */
+      .app.collapsed aside { /* reset desktop collapsed style */ }
+      .sidebar-label,
+      .nav-tabs,
+      .sidebar-divider,
+      .auth-status {
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        width: auto !important;
+        overflow: visible !important;
+      }
+
+      /* Tighter message padding on small screens */
+      .msg-row { padding: 14px 16px; }
+      .msg-row.system { padding: 10px 16px; }
+
+      /* Input area */
+      #input-area { padding: 10px 12px 12px; gap: 8px; }
+      #user-input { font-size: 16px; /* prevents iOS zoom on focus */ }
+
+      /* Header adjustments */
+      header { padding: 0 12px; }
+    }
   </style>
 </head>
 <body>
 <div class="app">
 
+  <!-- SIDEBAR OVERLAY (mobile) -->
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeMobileSidebar()"></div>
+
   <!-- HEADER -->
   <header>
-    <div class="header-title">Workspace Agent</div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button class="btn-hamburger" id="hamburger-btn" onclick="toggleMobileSidebar()" aria-label="Toggle menu">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M2 4.5h14M2 9h14M2 13.5h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <div class="header-title">Workspace Agent</div>
+    </div>
     <button class="btn-clear" onclick="clearChat()">Clear chat</button>
   </header>
 
@@ -693,9 +793,31 @@
     }, 1200);
   }
 
-  /* ── SIDEBAR TOGGLE ── */
+  /* ── SIDEBAR TOGGLE (desktop) ── */
   function toggleSidebar() {
     document.querySelector('.app').classList.toggle('collapsed');
+  }
+
+  /* ── MOBILE SIDEBAR ── */
+  function toggleMobileSidebar() {
+    const sidebar = document.querySelector('aside');
+    const overlay = document.getElementById('sidebar-overlay');
+    const isOpen  = sidebar.classList.contains('mobile-open');
+    if (isOpen) {
+      closeMobileSidebar();
+    } else {
+      sidebar.classList.add('mobile-open');
+      overlay.style.display = 'block';
+      requestAnimationFrame(() => overlay.classList.add('visible'));
+    }
+  }
+
+  function closeMobileSidebar() {
+    const sidebar = document.querySelector('aside');
+    const overlay = document.getElementById('sidebar-overlay');
+    sidebar.classList.remove('mobile-open');
+    overlay.classList.remove('visible');
+    overlay.addEventListener('transitionend', () => { overlay.style.display = 'none'; }, { once: true });
   }
 
   /* ── SELECT APP ── */
@@ -703,6 +825,7 @@
     document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
     activeApp = el.dataset.app;
+    if (window.innerWidth <= 640) closeMobileSidebar();
   }
 
   /* ── UTILS ── */

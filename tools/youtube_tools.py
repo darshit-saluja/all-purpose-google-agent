@@ -1,13 +1,14 @@
 from tools.auth import get_google_service
 
 
-def search_videos(query: str, max_results: int = 5) -> dict:
+def search_videos(query: str, max_results: int = 5, order: str = "relevance") -> dict:
     service = get_google_service("youtube", "v3")
     result = service.search().list(
         part="snippet",
         type="video",
         q=query,
         maxResults=max_results,
+        order=order,
     ).execute()
 
     videos = []

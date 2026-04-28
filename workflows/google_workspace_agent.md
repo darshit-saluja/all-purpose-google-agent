@@ -45,7 +45,7 @@ Orchestrate Google Workspace actions (Gmail, Calendar, Sheets, YouTube) via natu
 | `sheets_read_range`     | `spreadsheet_id`, `range_notation`        | —                                    |
 | `sheets_append_row`     | `spreadsheet_id`, `sheet_name`, `values`  | —                                    |
 | `sheets_update_cell`    | `spreadsheet_id`, `cell_notation`, `value`| —                                    |
-| `youtube_search`        | `query`                                   | `max_results`                        |
+| `youtube_search`        | `query`                                   | `max_results`, `order`               |
 | `youtube_my_videos`     | —                                         | `max_results`                        |
 
 ## Default Parameter Values
@@ -117,6 +117,7 @@ For `gmail_send`, `calendar_delete_event`, and `calendar_update_event`:
 
 _(Add entries below as new edge cases or API quirks are discovered in production)_
 
+- `youtube_search` supports an optional `order` param. Pass `order="date"` when the user asks for the "latest", "newest", or "most recent" video. Leave it out (defaults to `"relevance"`) for general searches. YouTube's relevance ranking is engagement-based, so a popular older video will beat a brand-new one — always pass `order="date"` for recency intent. Other accepted values: `"rating"`, `"viewCount"`, `"title"`.
 - `youtube_my_videos` requires the authenticated account to have a YouTube channel. If the user has no channel, the API returns an empty items list — handle gracefully.
 - Gmail `messages.get` with `format="metadata"` does not return the email body. If users ask for full email content, a `format="full"` call with MIME parsing will be needed (not yet implemented).
 - Calendar datetimes must include timezone info or Google rejects the request. Default to UTC and tell the user if their timezone was assumed.
