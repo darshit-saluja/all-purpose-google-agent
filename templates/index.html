@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Workspace Agent</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -29,7 +29,12 @@
       --font:        'Plus Jakarta Sans', sans-serif;
     }
 
-    html, body {
+    html {
+      height: 100%;
+      height: -webkit-fill-available;
+    }
+
+    body {
       height: 100%;
       background: var(--bg);
       color: var(--text);
@@ -44,6 +49,7 @@
       grid-template-columns: 200px 1fr;
       grid-template-areas: "header header" "sidebar main";
       height: 100vh;
+      height: 100dvh;
       transition: grid-template-columns 0.22s ease;
     }
 
@@ -423,12 +429,12 @@
 
     /* ── RESPONSIVE ── */
     @media (max-width: 640px) {
-      html, body { overflow: hidden; }
-
       .app {
         grid-template-columns: 1fr;
         grid-template-rows: 52px 1fr;
         grid-template-areas: "header" "main";
+        height: 100vh;
+        height: 100dvh;
         transition: none;
       }
 
@@ -474,8 +480,11 @@
       .msg-row { padding: 14px 16px; }
       .msg-row.system { padding: 10px 16px; }
 
-      /* Input area */
-      #input-area { padding: 10px 12px 12px; gap: 8px; }
+      /* Input area — extra bottom padding for iPhone home bar */
+      #input-area {
+        padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px)) 12px;
+        gap: 8px;
+      }
       #user-input { font-size: 16px; /* prevents iOS zoom on focus */ }
 
       /* Header adjustments */
