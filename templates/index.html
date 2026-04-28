@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Workspace Agent</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #FFFFFF;
+      --surface:     #FAFAFA;
+      --surface-alt: #F4F4F5;
+      --accent:      #16A34A;
+      --accent-bg:   #F0FDF4;
+      --accent-dark: #15803D;
+      --text:        #111111;
+      --text-2:      #6B7280;
+      --text-3:      #9CA3AF;
+      --border:      #E5E7EB;
+      --error-bg:    #FEF2F2;
+      --error-text:  #DC2626;
+      --green:       #16A34A;
+      --yellow:      #D97706;
+      --red:         #DC2626;
+      --font:        'Plus Jakarta Sans', sans-serif;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      overflow: hidden;
+    }
+
+    /* ── LAYOUT ── */
+    .app {
+      display: grid;
+      grid-template-rows: 52px 1fr;
+      grid-template-columns: 200px 1fr;
+      grid-template-areas: "header header" "sidebar main";
+      height: 100vh;
+    }
+
+    /* ── HEADER ── */
+    header {
+      grid-area: header;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      z-index: 10;
+    }
+
+    .header-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+
+    .btn-clear {
+      background: none;
+      border: none;
+      font-family: var(--font);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-2);
+      cursor: pointer;
+      padding: 6px 10px;
+      border-radius: 6px;
+      transition: color 0.15s, background 0.15s;
+    }
+
+    .btn-clear:hover {
+      color: var(--accent);
+      background: var(--accent-bg);
+    }
+
+    /* ── SIDEBAR ── */
+    aside {
+      grid-area: sidebar;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 16px 0;
+    }
+
+    .sidebar-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-3);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0 16px 10px;
+    }
+
+    .nav-tabs {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .nav-tab {
+      padding: 9px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-2);
+      cursor: pointer;
+      border-left: 2px solid transparent;
+      transition: color 0.12s, background 0.12s, border-color 0.12s;
+      user-select: none;
+    }
+
+    .nav-tab:hover {
+      background: #F3F4F6;
+      color: var(--text);
+    }
+
+    .nav-tab.active {
+      color: var(--accent);
+      background: var(--accent-bg);
+      border-left-color: var(--accent);
+    }
+
+    .sidebar-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 12px 16px;
+    }
+
+    .auth-status {
+      margin-top: auto;
+      padding: 0 16px;
+    }
+
+    .auth-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-3);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .auth-row {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .auth-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .auth-dot.green  { background: var(--green); }
+    .auth-dot.yellow { background: var(--yellow); }
+    .auth-dot.red    { background: var(--red); }
+
+    .auth-text {
+      font-size: 12px;
+      color: var(--text-2);
+    }
+
+    /* ── MAIN ── */
+    main {
+      grid-area: main;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    /* ── CHAT WINDOW ── */
+    #chat-window {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      scroll-behavior: smooth;
+    }
+
+    #chat-window::-webkit-scrollbar { width: 4px; }
+    #chat-window::-webkit-scrollbar-track { background: transparent; }
+    #chat-window::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* ── MESSAGE ROWS ── */
+    .msg-row {
+      width: 100%;
+      padding: 18px 28px;
+      border-bottom: 1px solid var(--border);
+      animation: msgIn 0.2s ease forwards;
+    }
+
+    .msg-row:last-child { border-bottom: none; }
+
+    @keyframes msgIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .msg-row.user  { background: var(--surface-alt); }
+    .msg-row.ai    { background: var(--bg); }
+    .msg-row.error { background: var(--error-bg); }
+
+    .msg-row.system {
+      background: transparent;
+      padding: 12px 28px;
+      text-align: center;
+      border-bottom: none;
+    }
+
+    .msg-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .msg-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .msg-row.user  .msg-label { color: var(--text-2); }
+    .msg-row.ai    .msg-label { color: var(--accent); }
+    .msg-row.error .msg-label { color: var(--error-text); }
+
+    .msg-time {
+      font-size: 11px;
+      color: var(--text-3);
+    }
+
+    .msg-body {
+      font-size: 14px;
+      line-height: 1.65;
+      color: var(--text);
+      word-break: break-word;
+    }
+
+    .msg-row.error .msg-body { color: var(--error-text); }
+
+    .msg-row.system .msg-body {
+      font-size: 11px;
+      color: var(--text-3);
+      font-style: italic;
+    }
+
+    /* ── TYPING INDICATOR ── */
+    .typing-dots {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+      padding: 4px 0;
+    }
+
+    .typing-dots span {
+      display: block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: dotPulse 1.2s infinite ease-in-out;
+    }
+
+    .typing-dots span:nth-child(2) { animation-delay: 0.18s; }
+    .typing-dots span:nth-child(3) { animation-delay: 0.36s; }
+
+    @keyframes dotPulse {
+      0%, 60%, 100% { opacity: 0.25; transform: scale(0.8); }
+      30%            { opacity: 1;   transform: scale(1.1); }
+    }
+
+    /* ── INPUT AREA ── */
+    #input-area {
+      border-top: 1px solid var(--border);
+      background: var(--bg);
+      padding: 14px 20px 16px;
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+    }
+
+    #user-input {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 1.5;
+      padding: 9px 13px;
+      resize: none;
+      min-height: 40px;
+      max-height: 130px;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      overflow-y: auto;
+    }
+
+    #user-input::placeholder { color: var(--text-3); font-style: italic; }
+
+    #user-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.1);
+    }
+
+    #user-input::-webkit-scrollbar { width: 3px; }
+    #user-input::-webkit-scrollbar-thumb { background: var(--border); }
+
+    #send-btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: var(--font);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 0 18px;
+      height: 40px;
+      flex-shrink: 0;
+      transition: background 0.15s, opacity 0.15s;
+    }
+
+    #send-btn:hover:not(:disabled) { background: var(--accent-dark); }
+    #send-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- HEADER -->
+  <header>
+    <div class="header-title">Workspace Agent</div>
+    <button class="btn-clear" onclick="clearChat()">Clear chat</button>
+  </header>
+
+  <!-- SIDEBAR -->
+  <aside>
+    <div class="sidebar-label">Apps</div>
+    <nav class="nav-tabs">
+      <div class="nav-tab active" data-app="All"      onclick="selectApp(this)">All</div>
+      <div class="nav-tab"        data-app="Gmail"    onclick="selectApp(this)">Gmail</div>
+      <div class="nav-tab"        data-app="Calendar" onclick="selectApp(this)">Calendar</div>
+      <div class="nav-tab"        data-app="Sheets"   onclick="selectApp(this)">Sheets</div>
+      <div class="nav-tab"        data-app="YouTube"  onclick="selectApp(this)">YouTube</div>
+    </nav>
+    <div class="sidebar-divider"></div>
+    <div class="auth-status">
+      <div class="auth-label">Status</div>
+      <div class="auth-row">
+        <div class="auth-dot yellow" id="auth-dot"></div>
+        <div class="auth-text" id="auth-text">Checking…</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main>
+    <div id="chat-window"></div>
+    <div id="input-area">
+      <textarea
+        id="user-input"
+        placeholder="Ask me anything about your Google Workspace…"
+        rows="1"
+      ></textarea>
+      <button id="send-btn" onclick="sendMessage()">Send</button>
+    </div>
+  </main>
+
+</div>
+
+<script>
+  const STORAGE_KEY = 'gwa_chat_history';
+  let conversationHistory = [];
+  let activeApp = 'All';
+  let isLoading = false;
+
+  /* ── INIT ── */
+  window.addEventListener('DOMContentLoaded', () => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try { conversationHistory = JSON.parse(saved); } catch { conversationHistory = []; }
+    }
+
+    if (conversationHistory.length === 0) {
+      appendMessage('ai', "Hello! I'm your Google Workspace assistant. I can help you manage your Gmail, Calendar, Sheets, and YouTube. What would you like to do?", true);
+    } else {
+      renderHistory();
+    }
+
+    checkAuthStatus();
+    autoResize(document.getElementById('user-input'));
+
+    document.getElementById('user-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        if (!isLoading) sendMessage();
+      }
+    });
+
+    document.getElementById('user-input').addEventListener('input', function () {
+      autoResize(this);
+    });
+  });
+
+  /* ── AUTH STATUS ── */
+  async function checkAuthStatus() {
+    const dot  = document.getElementById('auth-dot');
+    const text = document.getElementById('auth-text');
+    try {
+      const res  = await fetch('/auth/status');
+      const data = await res.json();
+      dot.className = 'auth-dot';
+      if (!data.credentials_file_exists) {
+        dot.classList.add('red');
+        text.textContent = 'No credentials.json';
+      } else if (!data.authenticated) {
+        dot.classList.add('yellow');
+        text.textContent = 'Not authenticated';
+      } else {
+        dot.classList.add('green');
+        text.textContent = 'Connected';
+      }
+    } catch {
+      dot.className = 'auth-dot red';
+      text.textContent = 'Unreachable';
+    }
+  }
+
+  /* ── RENDER HISTORY ── */
+  function renderHistory() {
+    const win = document.getElementById('chat-window');
+    win.innerHTML = '';
+    conversationHistory.forEach(item => {
+      if (item.role === 'system') {
+        createBubble('system', item.content, item.timestamp);
+      } else {
+        createBubble(item.role === 'user' ? 'user' : 'ai', item.content, item.timestamp, false, item.isError);
+      }
+    });
+    scrollBottom();
+  }
+
+  /* ── RENDER MARKDOWN ── */
+  function renderMarkdown(text) {
+    return text
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\n/g, '<br>');
+  }
+
+  /* ── CREATE ROW DOM ── */
+  function createBubble(role, content, timestamp, animate = true, isError = false) {
+    const win = document.getElementById('chat-window');
+    const row = document.createElement('div');
+    row.className = `msg-row ${role}`;
+    if (isError) row.classList.add('error');
+    if (!animate) row.style.animation = 'none';
+
+    if (role === 'system') {
+      const body = document.createElement('div');
+      body.className = 'msg-body';
+      body.textContent = content;
+      row.appendChild(body);
+      win.appendChild(row);
+      return row;
+    }
+
+    const meta = document.createElement('div');
+    meta.className = 'msg-meta';
+
+    const label = document.createElement('span');
+    label.className = 'msg-label';
+    label.textContent = role === 'user' ? 'You' : (isError ? 'Error' : 'AI');
+    meta.appendChild(label);
+
+    if (timestamp) {
+      const ts = document.createElement('span');
+      ts.className = 'msg-time';
+      ts.textContent = timestamp;
+      meta.appendChild(ts);
+    }
+
+    row.appendChild(meta);
+
+    const body = document.createElement('div');
+    body.className = 'msg-body';
+    body.innerHTML = renderMarkdown(content);
+    row.appendChild(body);
+
+    win.appendChild(row);
+    return row;
+  }
+
+  /* ── APPEND MESSAGE ── */
+  function appendMessage(role, content, skipStorage = false, isError = false) {
+    const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    createBubble(role, content, ts, true, isError);
+
+    if (!skipStorage) {
+      conversationHistory.push({ role, content, timestamp: ts, isError });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(conversationHistory));
+    } else if (conversationHistory.length === 0) {
+      conversationHistory.push({ role, content, timestamp: ts, isError });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(conversationHistory));
+    }
+
+    scrollBottom();
+  }
+
+  /* ── TYPING INDICATOR ── */
+  function showTypingIndicator() {
+    const win = document.getElementById('chat-window');
+    const row = document.createElement('div');
+    row.className = 'msg-row ai';
+    row.id = 'typing-indicator';
+
+    const meta = document.createElement('div');
+    meta.className = 'msg-meta';
+    const label = document.createElement('span');
+    label.className = 'msg-label';
+    label.textContent = 'AI';
+    meta.appendChild(label);
+    row.appendChild(meta);
+
+    const body = document.createElement('div');
+    body.className = 'msg-body';
+    body.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+    row.appendChild(body);
+
+    win.appendChild(row);
+    scrollBottom();
+  }
+
+  function removeTypingIndicator() {
+    const el = document.getElementById('typing-indicator');
+    if (el) el.remove();
+  }
+
+  /* ── SEND MESSAGE ── */
+  async function sendMessage() {
+    if (isLoading) return;
+    const input = document.getElementById('user-input');
+    const btn   = document.getElementById('send-btn');
+    const text  = input.value.trim();
+    if (!text) return;
+
+    let message = text;
+    if (activeApp !== 'All') {
+      message = `[Context: ${activeApp}] ${text}`;
+    }
+
+    appendMessage('user', text);
+    input.value = '';
+    autoResize(input);
+
+    isLoading = true;
+    input.disabled = true;
+    btn.disabled = true;
+    btn.textContent = '…';
+    showTypingIndicator();
+
+    try {
+      const res = await fetch('/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message }),
+      });
+
+      const data = await res.json();
+      removeTypingIndicator();
+
+      if (data.error) {
+        appendMessage('ai', data.error, false, true);
+      } else {
+        appendMessage('ai', data.reply || '(No response)');
+      }
+    } catch (err) {
+      removeTypingIndicator();
+      appendMessage('ai', `Network error: ${err.message}`, false, true);
+    } finally {
+      isLoading = false;
+      input.disabled = false;
+      btn.disabled = false;
+      btn.textContent = 'Send';
+      input.focus();
+    }
+  }
+
+  /* ── CLEAR CHAT ── */
+  async function clearChat() {
+    try {
+      await fetch('/chat/clear', { method: 'POST' });
+    } catch {}
+
+    conversationHistory = [];
+    localStorage.removeItem(STORAGE_KEY);
+
+    const win = document.getElementById('chat-window');
+    win.innerHTML = '';
+
+    const row = document.createElement('div');
+    row.className = 'msg-row system';
+    const body = document.createElement('div');
+    body.className = 'msg-body';
+    body.textContent = 'Chat cleared';
+    row.appendChild(body);
+    win.appendChild(row);
+
+    setTimeout(() => {
+      win.innerHTML = '';
+      appendMessage('ai', "Hello! I'm your Google Workspace assistant. I can help you manage your Gmail, Calendar, Sheets, and YouTube. What would you like to do?", true);
+    }, 1200);
+  }
+
+  /* ── SELECT APP ── */
+  function selectApp(el) {
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    activeApp = el.dataset.app;
+  }
+
+  /* ── UTILS ── */
+  function scrollBottom() {
+    const win = document.getElementById('chat-window');
+    win.scrollTop = win.scrollHeight;
+  }
+
+  function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 130) + 'px';
+  }
+</script>
+</body>
+</html>
