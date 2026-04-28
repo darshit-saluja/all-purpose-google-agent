@@ -1,8 +1,7 @@
 import os
+import json
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
-from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
 
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.modify",
@@ -11,48 +10,68 @@ SCOPES = [
     "https://www.googleapis.com/auth/youtube.readonly",
 ]
 
-CREDENTIALS_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "credentials.json")
-TOKEN_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "token.json")
+
+def _build_credentials() -> Credentials:
+    """Build Google OAuth credentials entirely from environment variables.
+
+    Required env vars:
+        GOOGLE_CLIENT_ID      - OAuth 2.0 client ID
+        GOOGLE_CLIENT_SECRET  - OAuth 2.0 client secret
+        GOOGLE_REFRESH_TOKEN  - Long-lived refresh token (generated once locally)
+    """
+    client_id = os.getenv("GOOGLE_CLIENT_ID")
+    client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
+    refresh_token = os.getenv("GOOGLE_REFRESH_TOKEN")
+
+    if not all([client_id, client_secret, refresh_token]):
+        missing = [
+            k for k, v in {
+                "GOOGLE_CLIENT_ID": client_id,
+                "GOOGLE_CLIENT_SECRET": client_secret,
+                "GOOGLE_REFRESH_TOKEN": refresh_token,
+            }.items() if not v
+        ]
+        raise EnvironmentError(
+            f"Missing required environment variables: {', '.join(missing)}. "
+            "Set them in your .env file (local) or Vercel Dashboard (production)."
+        )
+
+    creds = Credentials(
+        token=None,
+        refresh_token=refresh_token,
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=client_id,
+        client_secret=client_secret,
+        scopes=SCOPES,
+    )
+
+    # Refresh to obtain a valid access token
+    creds.refresh(Request())
+    return creds
 
 
 def get_google_service(api_name: str, api_version: str):
-    if not os.path.exists(CREDENTIALS_FILE):
-        raise FileNotFoundError(
-            "credentials.json not found. Download it from Google Cloud Console "
-            "(OAuth 2.0 Client ID, Desktop App type) and place it in the project root."
-        )
-
-    creds = None
-    if os.path.exists(TOKEN_FILE):
-        creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
-
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
-            creds = flow.run_local_server(port=0)
-        with open(TOKEN_FILE, "w") as f:
-            f.write(creds.to_json())
-
+    """Return an authorized Google API service client."""
+    from googleapiclient.discovery import build
+    creds = _build_credentials()
     return build(api_name, api_version, credentials=creds)
 
 
 def check_auth_status() -> dict:
-    credentials_exist = os.path.exists(CREDENTIALS_FILE)
-    if not credentials_exist:
-        return {"credentials_file_exists": False, "authenticated": False, "error": None}
+    """Check whether Google credentials are configured and valid."""
+    client_id = os.getenv("GOOGLE_CLIENT_ID")
+    client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
+    refresh_token = os.getenv("GOOGLE_REFRESH_TOKEN")
+
+    if not all([client_id, client_secret, refresh_token]):
+        return {
+            "credentials_file_exists": False,
+            "authenticated": False,
+            "error": "One or more GOOGLE_* environment variables are not set.",
+        }
 
     try:
-        if os.path.exists(TOKEN_FILE):
-            creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
-            if creds and creds.valid:
-                return {"credentials_file_exists": True, "authenticated": True, "error": None}
-            if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
-                with open(TOKEN_FILE, "w") as f:
-                    f.write(creds.to_json())
-                return {"credentials_file_exists": True, "authenticated": True, "error": None}
-        return {"credentials_file_exists": True, "authenticated": False, "error": None}
+        _build_credentials()
+        return {"credentials_file_exists": True, "authenticated": True, "error": None}
     except Exception as e:
         return {"credentials_file_exists": True, "authenticated": False, "error": str(e)}

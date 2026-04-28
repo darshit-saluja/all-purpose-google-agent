@@ -2,7 +2,7 @@ import os
 import json
 import uuid
 import requests
-from flask import Flask, render_template, request, jsonify, session
+from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -83,7 +83,7 @@ def _extract_action(text: str) -> str | None:
 def _call_ai(messages: list) -> str:
     api_key = os.getenv("KIE_AI_API_KEY")
     if not api_key:
-        raise ValueError("KIE_AI_API_KEY not set in .env")
+        raise ValueError("KIE_AI_API_KEY not set in environment variables")
 
     # Split system message out — Anthropic format puts it as a top-level field
     system_content = None
@@ -146,13 +146,19 @@ def chat():
     if not user_message:
         return jsonify({"reply": None, "error": "Empty message"}), 400
 
-    if "history" not in session:
-        session["history"] = []
+    # Accept conversation history from the client (stateless server pattern).
+    # The client (localStorage) is the source of truth for history.
+    client_history = data.get("history", [])
 
-    history = list(session["history"])
-    history.append({"role": "user", "content": user_message})
+    # Build message list: system prompt + client history + current user message
+    # Filter out system-role entries from client history for safety
+    safe_history = [
+        m for m in client_history
+        if isinstance(m, dict) and m.get("role") in ("user", "assistant")
+    ]
 
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}] + history
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}] + safe_history
+    messages.append({"role": "user", "content": user_message})
 
     final_reply = None
 
@@ -169,24 +175,20 @@ def chat():
                         params = parsed.get("params", {})
 
                         messages.append({"role": "assistant", "content": raw})
-                        history.append({"role": "assistant", "content": raw})
 
                         tool_result = _run_tool(action, params)
 
                         tool_msg = f"TOOL_RESULT: {tool_result}"
                         messages.append({"role": "user", "content": tool_msg})
-                        history.append({"role": "user", "content": tool_msg})
                         continue
                 except (json.JSONDecodeError, ValueError):
                     pass
 
             final_reply = raw
-            history.append({"role": "assistant", "content": raw})
             break
 
         if final_reply is None:
             final_reply = raw
-            history.append({"role": "assistant", "content": raw})
 
     except requests.exceptions.Timeout:
         return jsonify({"reply": None, "error": "AI request timed out. Please try again."})
@@ -197,15 +199,13 @@ def chat():
     except Exception as e:
         return jsonify({"reply": None, "error": str(e)})
 
-    session["history"] = history
-    session.modified = True
     return jsonify({"reply": final_reply, "error": None})
 
 
 @app.route("/chat/clear", methods=["POST"])
 def clear_chat():
-    session["history"] = []
-    session.modified = True
+    # History is managed client-side (localStorage). This endpoint is a no-op
+    # kept for frontend compatibility.
     return jsonify({"status": "cleared"})
 
 

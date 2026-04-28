@@ -5,3 +5,5 @@ token.json
 __pycache__/
 *.pyc
 .venv/
+api/__pycache__/
+generate_token.py

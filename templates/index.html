@@ -44,6 +44,11 @@
       grid-template-columns: 200px 1fr;
       grid-template-areas: "header header" "sidebar main";
       height: 100vh;
+      transition: grid-template-columns 0.22s ease;
+    }
+
+    .app.collapsed {
+      grid-template-columns: 40px 1fr;
     }
 
     /* ── HEADER ── */
@@ -91,6 +96,20 @@
       display: flex;
       flex-direction: column;
       padding: 16px 0;
+      overflow: hidden;
+    }
+
+    .sidebar-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 8px 10px 16px;
+      flex-shrink: 0;
+    }
+
+    .app.collapsed .sidebar-top {
+      justify-content: center;
+      padding: 0 0 10px;
     }
 
     .sidebar-label {
@@ -99,8 +118,42 @@
       color: var(--text-3);
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      padding: 0 16px 10px;
+      white-space: nowrap;
+      transition: opacity 0.15s;
     }
+
+    .app.collapsed .sidebar-label { opacity: 0; width: 0; overflow: hidden; }
+
+    .app.collapsed .nav-tabs,
+    .app.collapsed .sidebar-divider,
+    .app.collapsed .auth-status {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s;
+    }
+
+    .nav-tabs, .sidebar-divider, .auth-status { transition: opacity 0.15s; }
+
+    .sidebar-toggle {
+      background: var(--accent);
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      color: #fff;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.15s;
+      padding: 0;
+    }
+
+    .sidebar-toggle:hover { background: var(--accent-dark); }
+
+    .sidebar-toggle svg { display: block; transition: transform 0.22s ease; }
+    .app.collapsed .sidebar-toggle svg { transform: rotate(180deg); }
 
     .nav-tabs {
       display: flex;
@@ -351,7 +404,14 @@
 
   <!-- SIDEBAR -->
   <aside>
-    <div class="sidebar-label">Apps</div>
+    <div class="sidebar-top">
+      <div class="sidebar-label">Apps</div>
+      <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M9 3L5 7L9 11" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
     <nav class="nav-tabs">
       <div class="nav-tab active" data-app="All"      onclick="selectApp(this)">All</div>
       <div class="nav-tab"        data-app="Gmail"    onclick="selectApp(this)">Gmail</div>
@@ -575,10 +635,16 @@
     showTypingIndicator();
 
     try {
+      // Send the full history so the stateless server can reconstruct context.
+      // We map display roles to API roles before sending.
+      const historyPayload = conversationHistory
+        .filter(m => m.role === 'user' || m.role === 'ai')
+        .map(m => ({ role: m.role === 'ai' ? 'assistant' : 'user', content: m.content }));
+
       const res = await fetch('/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, history: historyPayload }),
       });
 
       const data = await res.json();
@@ -625,6 +691,11 @@
       win.innerHTML = '';
       appendMessage('ai', "Hello! I'm your Google Workspace assistant. I can help you manage your Gmail, Calendar, Sheets, and YouTube. What would you like to do?", true);
     }, 1200);
+  }
+
+  /* ── SIDEBAR TOGGLE ── */
+  function toggleSidebar() {
+    document.querySelector('.app').classList.toggle('collapsed');
   }
 
   /* ── SELECT APP ── */
